@@ -1,0 +1,47 @@
+evaluation:
+  # frequency: 5 --- IGNORE ---
+  stages:
+    80: 5   # Every 5 epochs until epoch 80
+  log_training_metrics: false  # Set to true to also evaluate on training data (slower, for debugging)
+hardware:
+  device: cuda
+  num_workers: 8
+  pin_memory: true
+logging:
+  log_frequency: 50
+  save_frequency: 2
+model:
+  architecture: convnext
+  backbone: convnext_base
+  name: faster_rcnn_convnext_base
+  num_classes: 11
+  pretrained: false
+training:
+  batch_size: 8
+  epochs: 80
+  gradient_clipping: 1.0
+  image_size:
+  - 800
+  - 1333
+  learning_rate: 0.0003
+  loss_weights:
+    loss_classifier: 1.0
+    loss_box_reg: 1.0
+    loss_objectness: 1.0
+    loss_rpn_box_reg: 1.0
+  lr_schedule: cosine
+  warmup_epochs: 3
+  warmup_start_factor: 0.1
+  mixed_precision: true
+  momentum: 0.9  # Used if optimizer is changed to SGD
+  normalize_mean:
+  - 0.485
+  - 0.456
+  - 0.406
+  normalize_std:
+  - 0.229
+  - 0.224
+  - 0.225
+  optimizer: adamw
+  weight_decay: 0.05
+  log_gradients: true

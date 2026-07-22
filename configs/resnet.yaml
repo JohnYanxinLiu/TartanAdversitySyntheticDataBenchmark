@@ -1,0 +1,55 @@
+evaluation:
+  # frequency: 4 --- IGNORE ---
+  # Staged evaluation: list of {stage_end_epoch: frequency} mappings
+  # Evaluates at 'frequency' epochs from end of previous stage until stage_end_epoch
+  stages:
+    20: 10 # Every 10 epochs until epoch 20
+    30: 5  # Every 5 epochs from 21 to 30
+    50: 1  # Every 2 epochs from 31 to 50
+  log_training_metrics: false  # Set to true to also evaluate on training data (slower, for debugging)
+hardware:
+  device: cuda
+  num_workers: 12
+  pin_memory: true
+logging:
+  log_frequency: 50
+  save_frequency: 2
+model:
+  architecture: resnet
+  backbone: resnet50
+  name: faster_rcnn_resnet50_fpn
+  num_classes: 11 # 10 classes + 1 background
+  pretrained: false
+training:
+  batch_size: 16
+  epochs: 50
+  gradient_clipping: 1.0
+  image_size:
+  - 800
+  - 1333
+  learning_rate: 0.02
+  loss_weights:
+    loss_classifier: 1.0
+    loss_box_reg: 1.0
+    loss_objectness: 1.0
+    loss_rpn_box_reg: 1.0
+  lr_gamma: 0.1
+  lr_schedule: step
+  lr_steps:
+  - 33
+  - 44
+  warmup_epochs: 1
+  warmup_start_factor: 0.1
+  mixed_precision: true
+  momentum: 0.9
+  normalize_mean:
+  - 0.21959978342056274 
+  - 0.23041898012161255 
+  - 0.22590169310569763
+  normalize_std:
+  - 0.2215529978275299
+  - 0.24716593325138092
+  - 0.2620720863342285
+  optimizer: sgd
+  weight_decay: 0.0001
+  log_gradients: true

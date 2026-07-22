@@ -1,0 +1,60 @@
+evaluation:
+  frequency: 10
+  metrics:
+  - mAP
+  - mAP_50
+  - mAP_75
+hardware:
+  device: cuda
+  num_workers: 4
+  pin_memory: true
+logging:
+  log_frequency: 100
+  save_frequency: 2
+model:
+  architecture: yolo
+  name: yolov8s
+  num_classes: 10
+  names:
+  - bike
+  - bus
+  - car
+  - motor
+  - person
+  - rider
+  - traffic light
+  - traffic sign
+  - train
+  - truck
+  pretrained: false
+training:
+  batch_size: 32
+  epochs: 250
+  image_size:
+  - 640
+  - 640
+  learning_rate: 0.01
+  lr_schedule: cosine
+  mixed_precision: true
+  momentum: 0.937
+  optimizer: sgd
+  warmup_bias_lr: 0.1
+  warmup_epochs: 3
+  weight_decay: 0.0005
+yolo_temp_dataset_path: local/yolo_dataset
+yolo_outputs_dir: runs/yolo
+paths:
+  synthetic:
+    automold:
+      images: AutomoldAugmented/images
+      labels: AutomoldAugmented/labels
+    gemini:
+      images: GeminiAugmented/images
+      labels: GeminiAugmented/labels
+  train:
+    images: ClearRealSubset/images
+    labels: ClearRealSubset/labels
+  val:
+    images: bdd100k_val/images
+    labels: bdd100k_val/labels
+    annotations: bdd100k_val/bdd100k_val_coco.json  # COCO format for weather metadata

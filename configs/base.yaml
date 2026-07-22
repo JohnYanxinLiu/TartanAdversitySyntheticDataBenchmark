@@ -1,0 +1,102 @@
+experiment:
+  dataset_cutoff: 0.8
+  dataset_size: 28800 # 28800
+  name: synthetic_replacement_experiment
+  weather_types:
+  - fog
+  - rain
+  - snow
+  evaluation:
+    conf_threshold: 0.05 # Threshold for custom metrics like mean_IoU
+    iou_thresholds: [0.5] # Not used for COCO mAP, but for custom logic if needed
+  categories:
+    - id: 1
+      name: bike
+    - id: 2
+      name: bus
+    - id: 3
+      name: car
+    - id: 4
+      name: motor
+    - id: 5
+      name: person
+    - id: 6
+      name: rider
+    - id: 7
+      name: traffic light
+    - id: 8
+      name: traffic sign
+    - id: 9
+      name: train
+    - id: 10
+      name: truck
+paths:
+  base_dir: .
+  data_dir: Data
+  # Internal structure within data_dir
+  train:
+    images: ClearRealSubset/images
+    annotations: ClearRealSubset/combined_dataset_coco.json
+    labels: ClearRealSubset/labels
+  # train:
+  #     images: full_bdd_train/img
+  #     annotations: full_bdd_train/bdd100k_train_coco.json
+  #     labels: full_bdd_train/bdd100k_train_coco.json
+  val:
+    images: bdd100k_val/images
+    annotations: bdd100k_val/bdd100k_val_coco.json
+    labels: bdd100k_val/labels
+  # Additional validation datasets
+  # Enable/disable by setting 'enabled: true/false'
+  val_datasets:
+    dawn:
+      enabled: true
+      images: DAWN/DAWN
+      annotations: DAWN/dawn_coco.json
+      labels: DAWN/labels
+      description: "DAWN - Detection in Adverse Weather and Night (fog, rain, snow)"
+    foggy_zurich:
+      enabled: true
+      images: FoggyZurich/Foggy_Driving/leftImg8bit
+      annotations: FoggyZurich/foggy_zurich_coco.json
+      labels: FoggyZurich/labels
+      description: "Foggy Zurich - Real-world foggy road scenes (101 images, all fog)"
+    acdc_train:
+      enabled: true
+      images: ACDC
+      annotations: ACDC/acdc_train_coco.json
+      labels: ACDC/labels/train
+      description: "ACDC Train Split - Adverse Conditions (fog, rain, snow)"
+    acdc_val:
+      enabled: true
+      images: ACDC
+      annotations: ACDC/acdc_val_coco.json
+      labels: ACDC/labels/val
+      description: "ACDC Val Split - Adverse Conditions (fog, rain, snow)"
+  synthetic:
+    gemini:
+      base_dir: GeminiAugmented
+      images: GeminiAugmented/images
+      labels: GeminiAugmented/labels
+      rankings: GeminiAugmented/GeminiRankings
+      annotations:
+        fog: GeminiAugmented/GeminiFogCoco.json
+        rain: GeminiAugmented/GeminiRainCoco.json
+        snow: GeminiAugmented/GeminiSnowCoco.json
+    automold:
+      base_dir: AutomoldAugmented
+      images: AutomoldAugmented/images
+      labels: AutomoldAugmented/labels
+      rankings: AutomoldAugmented/AutomoldRankings
+      annotations:
+        fog: AutomoldAugmented/AutomoldFogCoco.json
+        rain: AutomoldAugmented/AutomoldRainCoco.json
+        snow: AutomoldAugmented/AutomoldSnowCoco.json
+  checkpoints_dir: checkpoints
+  results_dir: results
+wandb:
+  # Configure Weights & Biases via environment variables (see .env.example):
+  #   WANDB_ENTITY, WANDB_PROJECT, WANDB_API_KEY
+  # Env vars take precedence over the values below. Leave null to use env only.
+  entity: null
+  project: null

@@ -1,0 +1,38 @@
+# Core deep learning packages
+torch>=2.0.0
+torchvision>=0.15.0
+ultralytics>=8.0.0
+
+# Data processing
+numpy>=1.21.0
+pandas>=1.3.0
+pillow>=8.0.0
+opencv-python>=4.5.0
+pycocotools>=2.0.6  # COCO mAP / per-weather evaluation (trainer.py, yolo_utils/)
+
+# Experiment tracking and visualization
+wandb>=0.15.0
+matplotlib>=3.5.0
+seaborn>=0.11.0
+
+# Utilities
+tqdm>=4.60.0
+pyyaml>=6.0
+scikit-learn>=1.0.0
+requests>=2.25.0
+
+# Dataset download / preprocessing (dataset_utils/)
+dataset-tools>=0.0.1  # DatasetNinja downloader (BDD100K, etc.)
+datasets>=2.14.0      # Load the TartanAdversity synthetic set from Hugging Face
+huggingface_hub>=0.16.0  # download_tartanadversity.py (dataset pull + ranking files)
+# hf_xet accelerates Xet-backed HF downloads but can hang on some networks.
+# If load_dataset stalls, uninstall it or set HF_HUB_DISABLE_XET=1 to use plain HTTPS.
+hf_xet>=1.0.0
+
+# Optional: for better performance
+timm>=0.6.0  # For additional model architectures
+albumentations>=1.0.0  # For advanced data augmentation
+
+# Development tools
+jupyter>=1.0.0
+ipykernel>=6.0.0

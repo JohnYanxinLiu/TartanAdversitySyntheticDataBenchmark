@@ -1,0 +1,47 @@
+# Credentials / environment
+.env
+
+# Hugging Face dataset staging area (its own git repo + multi-GB image data +
+# HF_TOKEN .env). Lives with the HF dataset, not the benchmark code.
+TartanAdversity/
+
+# Weights & Biases local logs
+wandb/
+
+# Datasets (download / build locally; not distributed with the code)
+Data/
+
+# ACDC download staging (multi-GB RGB archive + license-gated GT; users download
+# these themselves from https://acdc.vision.ee.ethz.ch/ — never redistribute)
+dataset_utils/acdc_dataset_zip_files/
+
+# Quick-run config overrides (not part of the published experiment configs)
+configs_smoke/
+
+# Experiment outputs
+runs/
+checkpoints/
+results/
+temp_yolo_dataset/
+*.pt
+*.pth
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.ipynb_checkpoints/
+.pytest_cache/
+
+# FinalExperimentAnalysis generated outputs (cleaned scripts are kept; the
+# stale CSV dumps and figures are regenerated from W&B, not committed)
+FinalExperimentAnalysis/final_results/
+FinalExperimentAnalysis/wandb_results/
+FinalExperimentAnalysis/*.pdf
+FinalExperimentAnalysis/*.png
+
+# OS / editor
+.DS_Store
+
+# YOLO temp dataset build dir (configs/yolo.yaml yolo_temp_dataset_path)
+local/
