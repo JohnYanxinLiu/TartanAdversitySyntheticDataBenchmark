@@ -12,19 +12,27 @@ wandb/
 Data/
 
 # ACDC download staging (multi-GB RGB archive + license-gated GT; users download
-# these themselves from https://acdc.vision.ee.ethz.ch/ — never redistribute)
-dataset_utils/acdc_dataset_zip_files/
+# these themselves from https://acdc.vision.ee.ethz.ch/ — never redistribute).
+# Listed without a trailing slash so a symlink to an external copy is ignored too.
+dataset_utils/acdc_dataset_zip_files
 
 # Quick-run config overrides (not part of the published experiment configs)
 configs_smoke/
 
-# Experiment outputs
-runs/
-checkpoints/
+# Experiment outputs. Listed without trailing slashes so that a symlink pointing
+# at checkpoints living outside the repo is ignored as well as a real directory.
+runs
+checkpoints
 results/
 temp_yolo_dataset/
 *.pt
 *.pth
+
+# Re-evaluation sweep: per-checkpoint metrics plus the generated job manifests,
+# array scripts, and their slurm logs. Regenerate with
+# sbatch_scripts/generate_eval_jobs.py; publish with log_eval_results_to_wandb.py.
+eval_results/
+sbatch_scripts/eval/
 
 # Python
 __pycache__/

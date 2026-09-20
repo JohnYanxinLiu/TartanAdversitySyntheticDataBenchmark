@@ -584,11 +584,33 @@ class MixedGenDataSet(Dataset):
         return img, target
 
 
-    def compute_normalization_stats(self):
+    def compute_normalization_stats(self, cache_path=None):
         """
         Compute exact global mean and standard deviation across all pixels
         in the dataset. Stores the result as self.normalization_transform = T.Normalize(mean, std).
+
+        This is a full serial pass over every training image, so it costs many
+        minutes. The mixture is seeded and deterministic, which makes the result
+        a pure function of the run configuration -- pass ``cache_path`` to read
+        it back on subsequent calls instead of recomputing. The cache records the
+        image count it was built from and is ignored if that no longer matches.
         """
+        if cache_path and os.path.exists(cache_path):
+            try:
+                with open(cache_path) as f:
+                    cached = json.load(f)
+                if cached.get("num_images") == len(self.mixed_file_paths):
+                    means = torch.tensor(cached["mean"], dtype=torch.float32)
+                    stds = torch.tensor(cached["std"], dtype=torch.float32)
+                    print(f"[INFO] Loaded normalization stats from {cache_path}")
+                    print(f"Dataset mean: {means.tolist()}")
+                    print(f"Dataset std:  {stds.tolist()}")
+                    return means, stds
+                print(f"[WARNING] Ignoring {cache_path}: built from "
+                      f"{cached.get('num_images')} images, dataset now has "
+                      f"{len(self.mixed_file_paths)}")
+            except (ValueError, KeyError, OSError) as e:
+                print(f"[WARNING] Could not read normalization cache {cache_path}: {e}")
 
         # For debugging just print the number of images
         print(f"Computing normalization stats for {len(self.mixed_file_paths)} images...")
@@ -613,6 +635,15 @@ class MixedGenDataSet(Dataset):
 
         print(f"Dataset mean: {means.tolist()}")
         print(f"Dataset std:  {stds.tolist()}")
+
+        if cache_path:
+            os.makedirs(os.path.dirname(os.path.abspath(cache_path)), exist_ok=True)
+            tmp = cache_path + ".tmp"
+            with open(tmp, "w") as f:
+                json.dump({"mean": means.tolist(), "std": stds.tolist(),
+                           "num_images": len(self.mixed_file_paths)}, f, indent=2)
+            os.replace(tmp, cache_path)  # atomic: concurrent writers can't tear it
+            print(f"[INFO] Cached normalization stats to {cache_path}")
 
         return means, stds
     

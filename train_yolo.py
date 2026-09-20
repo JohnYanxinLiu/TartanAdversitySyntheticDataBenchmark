@@ -303,13 +303,26 @@ class YOLOExperimentRunner:
         # Run YOLO's built-in validation to get predictions quickly
         print("Running YOLO validation (this will generate predictions)...")
 
+        # Isolate YOLO's val output. By default model.val() writes predictions.json
+        # under runs/detect/valN, which here is a symlink into the old checkout and
+        # whose N-autoincrement is NOT concurrency-safe: parallel array tasks pick
+        # the same valN and clobber each other's predictions.json, producing a
+        # truncated file that json.load then chokes on. Pin an explicit, per-process
+        # directory in this repo instead.
+        val_project = os.path.join(
+            self.config_manager.model_config["yolo_temp_dataset_path"],
+            self.config_manager.run_name, "val_out")
+        val_name = f"bdd_{os.getpid()}"
+
         old_stdout = sys.stdout
         sys.stdout = io.StringIO()
         val_results = None
         try:
             with torch.no_grad():
                 # Run validation directly on the model passed in (which is now a fresh loaded model)
-                val_results = model.val(data=data_yaml, save_json=True, save_hybrid=False, verbose=False)
+                val_results = model.val(data=data_yaml, save_json=True, save_hybrid=False,
+                                        verbose=False, project=val_project, name=val_name,
+                                        exist_ok=True)
         finally:
             sys.stdout = old_stdout
             
@@ -423,6 +436,8 @@ def main():
                         help="Keep cached temporary dataset directory")
     parser.add_argument("--eval_only", action="store_true", help="Skip training and evaluate a specific checkpoint")
     parser.add_argument("--checkpoint_path", type=str, default=None, help="Path to weights for eval_only mode")
+    parser.add_argument("--eval_epoch", type=int, default=None,
+                        help="Epoch number to record alongside --eval_only metrics in W&B")
     args = parser.parse_args()
     
     # Validate mixing arguments
@@ -460,21 +475,48 @@ def main():
             parser.error("--checkpoint_path is required when using --eval_only")
 
         print(f"=== Running Eval Only Mode: {args.checkpoint_path} ===")
-        # 1. Reconstruct the paths needed for evaluation
+        # 1. Build (or reuse) the temp dataset. The BDD100K per-weather pass runs
+        #    model.val(data=data_yaml), so the mixed dataset this run was trained
+        #    on has to exist -- reconstructing the path alone is not enough.
         temp_base = config_manager.model_config["yolo_temp_dataset_path"]
         temp_dataset_dir = os.path.join(temp_base, config_manager.run_name)
-        data_yaml = os.path.join(temp_dataset_dir, "data.yaml")
-        
+        data_yaml = prepare_temp_dataset(config_manager, temp_dataset_dir,
+                                         keep_cached_data=True)
+
         # 2. Load the model and mapping
         model = YOLO(args.checkpoint_path)
         weather_mapping = runner._create_weather_mapping()
-        
-        # 3. Running evaluation
+
+        # 3. Run evaluation
         print("Running BDD100K Per-Weather Evaluation...")
-        runner._evaluate_per_weather_metrics(model, weather_mapping, data_yaml)
-        
+        results = runner._evaluate_per_weather_metrics(model, weather_mapping, data_yaml) or {}
+
         print("\nRunning Additional Datasets Evaluation (DAWN, ACDC, etc)...")
-        evaluate_additional_datasets(config_manager, model)
+        results.update(evaluate_additional_datasets(config_manager, model) or {})
+
+        # 4. Log the metrics we just computed. Without this the whole evaluation
+        #    is discarded on exit.
+        if args.wandb_key and results:
+            os.environ["WANDB_API_KEY"] = args.wandb_key
+            wandb.login(key=args.wandb_key)
+            if wandb.run is not None:
+                wandb.finish()
+            wandb_entity, wandb_project = resolve_wandb_target(
+                config_manager.base_config.get("wandb", {}))
+            wandb.init(entity=wandb_entity, project=wandb_project,
+                       name=config_manager.run_name, reinit=True)
+            wandb.define_metric("epoch")
+            wandb.define_metric("*", step_metric="epoch")
+            if args.eval_epoch is not None:
+                results["epoch"] = args.eval_epoch
+            wandb.log(results)
+            print(f"[INFO] Logged {len(results)} metrics to {wandb.run.url}")
+            wandb.finish()
+        elif results:
+            print("[INFO] No W&B key provided; metrics were computed but not logged.")
+
+        for k in sorted(results):
+            print(f"  {k}: {results[k]}")
     else:
         # Standard overnight training
         results = runner.run_experiment(args.wandb_key, keep_cached_data=args.keep_cached_data)
@@ -483,9 +525,9 @@ def main():
         if args.wandb_key and wandb.run is not None:
             print("[INFO] Finishing W&B run...")
             wandb.finish()
-    
+        print(results)
+
     print("Experiment finished")
-    print(results)
 
 if __name__ == "__main__":
     main()

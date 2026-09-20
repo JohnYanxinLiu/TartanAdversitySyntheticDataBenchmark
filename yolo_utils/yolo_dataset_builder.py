@@ -306,7 +306,8 @@ def prepare_temp_dataset(config_manager: ConfigManager, temp_dataset_dir: str, k
     return data_yaml_path
 
 
-def create_temp_validation_dataset(dataset_name, images_path, labels_path, temp_base_dir, config_manager):
+def create_temp_validation_dataset(dataset_name, images_path, labels_path, temp_base_dir,
+                                   config_manager, expected_count=None):
     """
     Creates a temporary standard YOLO structure for an additional validation dataset.
     Uses symlinks to avoid data duplication.
@@ -316,14 +317,20 @@ def create_temp_validation_dataset(dataset_name, images_path, labels_path, temp_
              images/  -> symlink to images_path
              labels/  -> symlink to labels_path
              data.yaml
-             
+
     Args:
         dataset_name: Name of dataset (e.g. "dawn")
         images_path: Absolute path to source images directory
         labels_path: Absolute path to source labels directory
         temp_base_dir: Directory to create structure in
         config_manager: ConfigManager for class names/counts
-        
+        expected_count: Number of images the COCO ground truth declares. When
+            given, the assembled set must match it exactly or a RuntimeError is
+            raised. Several of these datasets nest images while storing labels
+            flat, and some (ACDC) point at a directory holding both splits, so a
+            silent under- or over-match here would evaluate the wrong image set
+            and still produce plausible-looking mAP.
+
     Returns:
         Path to the generated data.yaml file
     """
@@ -360,7 +367,7 @@ def create_temp_validation_dataset(dataset_name, images_path, labels_path, temp_
         checked_count = 0
         MAX_CHECKS = 100
         
-        for root, dirs, files in os.walk(images_path):
+        for root, dirs, files in os.walk(images_path, followlinks=True):
             valid_imgs = [f for f in files if f.lower().endswith(('.jpg', '.jpeg', '.png', '.bmp', '.tif'))]
             for img_file in valid_imgs:
                 checked_count += 1
@@ -402,18 +409,30 @@ def create_temp_validation_dataset(dataset_name, images_path, labels_path, temp_
              print(f"[INFO] No direct nested matches found for {dataset_name} (checked {checked_count} files). Defaulting to intersection remapping to filter subset.")
              use_simple_symlink = False
 
+    # Number of image/label pairs the assembled dataset ends up with, checked
+    # against expected_count below.
+    count_linked = None
+
     # Create symlinks
     try:
         if use_simple_symlink:
             # Standard case: direct symlinks for the whole folders
             os.symlink(images_path, target_images)
             print(f"[INFO] Created symlink for {dataset_name} images: {target_images} -> {images_path}")
-            
+
             if os.path.exists(labels_path):
                 os.symlink(labels_path, target_labels)
                 print(f"[INFO] Created symlink for {dataset_name} labels: {target_labels} -> {labels_path}")
             else:
                 print(f"[WARNING] Labels path does not exist: {labels_path}. Validation will likely fail.")
+
+            image_extensions = {'.jpg', '.jpeg', '.png', '.bmp', '.tif', '.tiff'}
+            count_linked = sum(
+                1
+                for root, _dirs, files in os.walk(images_path, followlinks=True)
+                for f in files
+                if os.path.splitext(f)[1].lower() in image_extensions
+            )
         else:
             # Structure Mismatch / Intersection Strategy
             # When images are nested but labels are flat (ACDC, DAWN, Foggy), 
@@ -429,7 +448,7 @@ def create_temp_validation_dataset(dataset_name, images_path, labels_path, temp_
             image_extensions = {'.jpg', '.jpeg', '.png', '.bmp', '.tif', '.tiff'}
             
             # Walk image directory to find candidates
-            for root, dirs, files in os.walk(images_path):
+            for root, dirs, files in os.walk(images_path, followlinks=True):
                 for file in files:
                     if os.path.splitext(file)[1].lower() in image_extensions:
                         # Relative path of this image from images root (preserves nesting structure)
@@ -467,7 +486,21 @@ def create_temp_validation_dataset(dataset_name, images_path, labels_path, temp_
 
     except Exception as e:
         print(f"[ERROR] Failed to create datasets for {dataset_name}: {e}")
-    
+        raise
+
+    # Fail loudly rather than silently evaluating a subset or a polluted superset.
+    if expected_count is not None and count_linked != expected_count:
+        raise RuntimeError(
+            f"{dataset_name}: assembled {count_linked} image/label pairs but the COCO "
+            f"ground truth declares {expected_count}. The YOLO .txt path and the COCO "
+            f"path would be scoring different image sets. Check the images/labels "
+            f"layout for this dataset before trusting any metric from it."
+        )
+    if expected_count is not None:
+        print(f"[INFO] {dataset_name}: image/label pair count matches COCO ground truth "
+              f"({count_linked}).")
+
+
     # Create data.yaml
     path = os.path.abspath(dataset_dir)
     nc = config_manager.model_config["model"]["num_classes"]

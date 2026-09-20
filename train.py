@@ -372,8 +372,10 @@ def evaluate_checkpoints(model_type, mix_rate, augmentation_type, mixing_method=
         print(f"Evaluating checkpoint: epoch_{epoch_num}.pth")
         print(f"{'='*80}")
         
-        # Load checkpoint
-        checkpoint = torch.load(ckpt_path, map_location=trainer.device)
+        # Load checkpoint. weights_only=False because these checkpoints store
+        # numpy scalars (best_map etc.) beside the state dict; torch>=2.6 would
+        # otherwise refuse to unpickle them. They are our own trained files.
+        checkpoint = torch.load(ckpt_path, map_location=trainer.device, weights_only=False)
         trainer.model.load_state_dict(checkpoint["model_state_dict"])
         trainer.current_epoch = checkpoint['epoch']  # Set epoch for wandb logging
         print(f"Loaded model state from epoch {checkpoint['epoch']}")

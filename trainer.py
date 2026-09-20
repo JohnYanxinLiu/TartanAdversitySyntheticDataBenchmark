@@ -203,7 +203,7 @@ class BaseTrainer:
             print("[INFO] No learning rate scheduler will be used.")
             self.scheduler = None
 
-    def build_datasets(self, prepared_synthetic_data):
+    def build_datasets(self, prepared_synthetic_data, norm_cache_path=None):
         
         paths_config = self.config_manager.base_config["paths"]
         training_config = self.config_manager.model_config["training"].copy()
@@ -253,8 +253,10 @@ class BaseTrainer:
              # For replacement, size should be exactly maintained
              assert len(self.train_dataset) == self.config_manager.base_config["experiment"]["dataset_size"], f"Expected dataset size {self.config_manager.base_config['experiment']['dataset_size']}, got {len(self.train_dataset)}"
         
-        # Compute stats from the dataset
-        train_mean, train_std = self.train_dataset.compute_normalization_stats()
+        # Compute stats from the dataset (cached when a path is supplied: the
+        # mixture is seeded, so the result only depends on the run config)
+        train_mean, train_std = self.train_dataset.compute_normalization_stats(
+            cache_path=norm_cache_path)
         
         # Store for use in model initialization AND visualization
         self.norm_mean = train_mean

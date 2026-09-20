@@ -361,22 +361,42 @@ def evaluate_additional_datasets(config_manager, model, verify_labels=True):
                 verify_label_indices(lbl_path, name, config_manager.model_config["model"]["num_classes"])
             
         # 3. Create JIT temporary dataset
-        # We use a subdirectory of the main temp folder to avoid conflicts
+        # We use a subdirectory of the main temp folder to avoid conflicts.
+        # Pass the COCO image count so the builder can verify it assembled the
+        # same image set the ground truth describes.
+        expected_count = None
+        ann_rel = cfg.get("annotations")
+        if ann_rel:
+            ann_abs = os.path.join(data_dir, ann_rel)
+            if os.path.exists(ann_abs):
+                with open(ann_abs, 'r') as f:
+                    expected_count = len(json.load(f)["images"])
+
         try:
             dataset_yaml_path = create_temp_validation_dataset(
                 dataset_name=name,
                 images_path=img_path,
                 labels_path=lbl_path,
                 temp_base_dir=temp_dir,
-                config_manager=config_manager
+                config_manager=config_manager,
+                expected_count=expected_count
             )
             
             # 4. Run Validation
             print(f"Running validation on {name}...")
             # Check for COCO annotations for Per-Weather metrics
             has_coco_annotations = "annotations" in cfg and os.path.exists(os.path.join(data_dir, cfg["annotations"]))
-            
-            results = model.val(data=dataset_yaml_path, save_json=has_coco_annotations, verbose=False)
+
+            # Isolate val output per process/dataset. The default runs/detect/valN
+            # location is a symlink into the old checkout with a concurrency-unsafe
+            # autoincrement; parallel tasks otherwise clobber each other's
+            # predictions.json. Keep it inside this repo, keyed by pid + dataset.
+            val_project = os.path.join(temp_dir, "val_out")
+            val_name = f"{name}_{os.getpid()}"
+
+            results = model.val(data=dataset_yaml_path, save_json=has_coco_annotations,
+                                verbose=False, project=val_project, name=val_name,
+                                exist_ok=True)
             
             # Extract metrics
             map50_95 = results.box.map    # mAP 50-95
@@ -459,6 +479,10 @@ def evaluate_additional_datasets(config_manager, model, verify_labels=True):
                 else:
                     print(f"[WARNING] Predictions file not found at {pred_json_path}")
             
+        except RuntimeError:
+            # Dataset-integrity failures must not be downgraded to a skipped
+            # dataset: a missing metric is easy to overlook, a crash is not.
+            raise
         except Exception as e:
             print(f"[ERROR] Failed to evaluate {name}: {e}")
             import traceback
