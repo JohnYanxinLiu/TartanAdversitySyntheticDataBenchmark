@@ -53,3 +53,8 @@ FinalExperimentAnalysis/*.png
 
 # YOLO temp dataset build dir (configs/yolo.yaml yolo_temp_dataset_path)
 local/
+
+# Derived outputs: per-run normalization statistics (regenerated on demand by
+# eval_sweep.py --norm_cache_only) and aggregated results tables.
+norm_cache/
+FinalExperimentAnalysis_reeval/
